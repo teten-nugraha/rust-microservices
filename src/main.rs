@@ -23,9 +23,11 @@ async fn health() -> Json<HealthResponse> {
 
 #[tokio::main]
 async fn main() {
-    let app = Router::new().route("/health", get(health).merge(product_routes()));
+    let app = Router::new()
+        .route("/health", get(health))
+        .merge(product_routes());
 
-    let listener = tokio::net::TcpListener::bind("[IP_ADDRESS]")
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:8080")
         .await
         .expect("Failed to bind server");
 

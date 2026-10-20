@@ -3,7 +3,7 @@ use axum::{Json, extract::Path, http::StatusCode};
 use crate::models::product::{CreateProductRequest, Product};
 
 // DUmmy product data
-fn dummy_products() -> Vector<Product> {
+fn dummy_products() -> Vec<Product> {
     vec![
         Product {
             sku: "SKU001".to_string(),
@@ -38,14 +38,25 @@ pub async fn get_product(Path(sku): Path<String>) -> Result<Json<Product>, Statu
 // POST  /api/products
 pub async fn create_product(
     Json(request): Json<CreateProductRequest>,
-) -> (StatusCode, Json<Product>) {
+) -> Result<(StatusCode, Json<Product>), StatusCode> {
+    if request.price <= 0 {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+
+    if request.sku.trim().is_empty() {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+
+    if request.stock < 0 {
+        return Err(StatusCode::BAD_REQUEST);
+    }
 
     let product = Product {
         sku: request.sku,
         name: request.name,
         price: request.price,
         stock: request.stock,
-    }
+    };
 
-    (StatusCode::CREATED, Json(product))
+    Ok((StatusCode::CREATED, Json(product)))
 }
