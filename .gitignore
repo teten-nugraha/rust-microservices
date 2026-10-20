@@ -1,0 +1,33 @@
+# Rust build output
+/target
+
+# Cargo lock (uncomment for library projects)
+# Cargo.lock
+
+# Backup files
+*.rs.bk
+*.rs.swp
+*.orig
+
+# IDE / Editor
+.idea/
+.vscode/*
+!.vscode/launch.json
+!.vscode/tasks.json
+*.code-workspace
+*.swp
+*.swo
+*~
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
