@@ -1,6 +1,7 @@
 use axum::{Json, extract::Path, http::StatusCode};
 
 use crate::models::product::{CreateProductRequest, Product};
+use crate::services::inventory_service::InventoryService;
 
 // DUmmy product data
 fn dummy_products() -> Vec<Product> {
@@ -51,12 +52,27 @@ pub async fn create_product(
         return Err(StatusCode::BAD_REQUEST);
     }
 
-    let product = Product {
+    let mut product = Product {
         sku: request.sku,
         name: request.name,
         price: request.price,
         stock: request.stock,
     };
+
+    let available = InventoryService::is_available(&product);
+
+    println!("Available : {}", available);
+
+    let result = InventoryService::adjust_stock(&mut product, -20);
+
+    match result {
+        Ok(()) => {
+            println!("New stock: {}", product.stock);
+        }
+        Err(error) => {
+            println!("Error: {}", error)
+        }
+    }
 
     Ok((StatusCode::CREATED, Json(product)))
 }

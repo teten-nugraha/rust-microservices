@@ -1,6 +1,7 @@
 mod handlers;
 mod models;
 mod routes;
+mod services;
 
 use axum::{Json, Router, routing::get};
 
