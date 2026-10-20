@@ -5,7 +5,7 @@ use sqlx::FromRow;
 pub struct Product {
     pub sku: String,
     pub name: String,
-    pub price: i32,
+    pub price: i64,
     pub stock: i32,
 }
 
@@ -13,6 +13,6 @@ pub struct Product {
 pub struct CreateProductRequest {
     pub sku: String,
     pub name: String,
-    pub price: i32,
+    pub price: i64,
     pub stock: i32,
 }
