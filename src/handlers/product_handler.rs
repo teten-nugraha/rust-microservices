@@ -1,34 +1,31 @@
-use axum::{Json, extract::Path, http::StatusCode};
+use axum::{
+    Json,
+    extract::{Path, State},
+    http::StatusCode,
+};
+
+use sqlx::PgPool;
 
 use crate::models::product::{CreateProductRequest, Product};
-use crate::services::inventory_service::InventoryService;
-
-// DUmmy product data
-fn dummy_products() -> Vec<Product> {
-    vec![
-        Product {
-            sku: "SKU001".to_string(),
-            name: "T-Shirt Basic".to_string(),
-            price: 99000,
-            stock: 100,
-        },
-        Product {
-            sku: "SKU002".to_string(),
-            name: "Jeans Regular".to_string(),
-            price: 249000,
-            stock: 50,
-        },
-    ]
-}
+use crate::services::product_service::ProductService;
 
 // GET /api/products
-pub async fn get_products() -> Json<Vec<Product>> {
-    Json(dummy_products())
+pub async fn get_products(State(pool): State<PgPool>) -> Result<Json<Vec<Product>>, StatusCode> {
+    let products = ProductService::get_all(&pool)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    Ok(Json(products))
 }
 
 // GET /api/products/{sku}
-pub async fn get_product(Path(sku): Path<String>) -> Result<Json<Product>, StatusCode> {
-    let product = dummy_products().into_iter().find(|p| p.sku == sku);
+pub async fn get_product(
+    State(pool): State<PgPool>,
+    Path(sku): Path<String>,
+) -> Result<Json<Product>, StatusCode> {
+    let product = ProductService::get_by_sku(&pool, &sku)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     match product {
         Some(product) => Ok(Json(product)),
@@ -38,41 +35,26 @@ pub async fn get_product(Path(sku): Path<String>) -> Result<Json<Product>, Statu
 
 // POST  /api/products
 pub async fn create_product(
+    State(pool): State<PgPool>,
     Json(request): Json<CreateProductRequest>,
 ) -> Result<(StatusCode, Json<Product>), StatusCode> {
-    if request.price <= 0 {
+    if request.sku.trim().is_empty()
+        || request.name.trim().is_empty()
+        || request.price <= 0
+        || request.stock < 0
+    {
         return Err(StatusCode::BAD_REQUEST);
     }
 
-    if request.sku.trim().is_empty() {
-        return Err(StatusCode::BAD_REQUEST);
-    }
+    let product = ProductService::create(&pool, &request)
+        .await
+        .map_err(|error| match &error {
+            sqlx::Error::Database(db_error) if db_error.is_unique_violation() => {
+                StatusCode::CONFLICT
+            }
 
-    if request.stock < 0 {
-        return Err(StatusCode::BAD_REQUEST);
-    }
-
-    let mut product = Product {
-        sku: request.sku,
-        name: request.name,
-        price: request.price,
-        stock: request.stock,
-    };
-
-    let available = InventoryService::is_available(&product);
-
-    println!("Available : {}", available);
-
-    let result = InventoryService::adjust_stock(&mut product, -20);
-
-    match result {
-        Ok(()) => {
-            println!("New stock: {}", product.stock);
-        }
-        Err(error) => {
-            println!("Error: {}", error)
-        }
-    }
+            _ => StatusCode::INTERNAL_SERVER_ERROR,
+        })?;
 
     Ok((StatusCode::CREATED, Json(product)))
 }
