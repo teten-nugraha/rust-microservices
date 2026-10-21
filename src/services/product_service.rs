@@ -1,5 +1,6 @@
 use sqlx::PgPool;
 
+use crate::models::stock_movement::StockMovement;
 use crate::{
     models::product::{CreateProductRequest, Product},
     repositories::product_repository::{AdjustStockError, ProductRepository},
@@ -27,7 +28,15 @@ impl ProductService {
         pool: &PgPool,
         sku: &str,
         qty: i32,
+        reason: &str,
     ) -> Result<Product, AdjustStockError> {
-        ProductRepository::adjust_stock(pool, sku, qty).await
+        ProductRepository::adjust_stock(pool, sku, qty, reason).await
+    }
+
+    pub async fn get_stock_movements(
+        pool: &PgPool,
+        sku: &str,
+    ) -> Result<Vec<StockMovement>, sqlx::Error> {
+        ProductRepository::find_stock_movements(pool, sku).await
     }
 }
