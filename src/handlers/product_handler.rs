@@ -5,8 +5,10 @@ use axum::{
 };
 
 use crate::models::product::{CreateProductRequest, Product};
+use crate::models::stock_movement::StockMovement;
 use crate::repositories::product_repository::AdjustStockError;
 use crate::services::product_service::ProductService;
+
 use serde::Deserialize;
 use sqlx::PgPool;
 
@@ -64,6 +66,7 @@ pub async fn create_product(
 pub struct AdjustStockRequest {
     pub sku: String,
     pub quantity: i32,
+    pub reason: String,
 }
 
 pub async fn adjust_stock(
@@ -74,7 +77,8 @@ pub async fn adjust_stock(
         return Err(StatusCode::BAD_REQUEST);
     }
 
-    match ProductService::adjust_stock(&pool, &request.sku, request.quantity).await {
+    match ProductService::adjust_stock(&pool, &request.sku, request.quantity, &request.reason).await
+    {
         Ok(product) => Ok(Json(product)),
 
         Err(AdjustStockError::NotFound) => Err(StatusCode::NOT_FOUND),
@@ -87,6 +91,19 @@ pub async fn adjust_stock(
 
         Err(AdjustStockError::Database(error)) => {
             eprintln!("Database error: {error:?}");
+            Err(StatusCode::INTERNAL_SERVER_ERROR)
+        }
+    }
+}
+
+pub async fn get_stock_movements(
+    State(pool): State<PgPool>,
+    Path(sku): Path<String>,
+) -> Result<Json<Vec<StockMovement>>, StatusCode> {
+    match ProductService::get_stock_movements(&pool, &sku).await {
+        Ok(movements) => Ok(Json(movements)),
+        Err(error) => {
+            eprintln!("Error getting stock movements: {error:?}");
             Err(StatusCode::INTERNAL_SERVER_ERROR)
         }
     }
