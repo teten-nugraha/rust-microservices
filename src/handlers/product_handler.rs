@@ -12,6 +12,8 @@ use crate::services::product_service::ProductService;
 use serde::Deserialize;
 use sqlx::PgPool;
 
+use tracing::{error, info, warn};
+
 // GET /api/products
 pub async fn get_products(State(pool): State<PgPool>) -> Result<Json<Vec<Product>>, StatusCode> {
     let products = ProductService::get_all(&pool)
@@ -73,6 +75,13 @@ pub async fn adjust_stock(
     State(pool): State<PgPool>,
     Json(request): Json<AdjustStockRequest>,
 ) -> Result<Json<Product>, StatusCode> {
+    info!(
+        sku = %request.sku,
+        quantity = request.quantity,
+        reason = %request.reason,
+        "Stock Adjustment Requested"
+    );
+
     if request.sku.trim().is_empty() || request.quantity == 0 {
         return Err(StatusCode::BAD_REQUEST);
     }
