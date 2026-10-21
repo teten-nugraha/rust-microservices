@@ -4,10 +4,11 @@ use axum::{
     http::StatusCode,
 };
 
-use sqlx::PgPool;
-
 use crate::models::product::{CreateProductRequest, Product};
+use crate::repositories::product_repository::AdjustStockError;
 use crate::services::product_service::ProductService;
+use serde::Deserialize;
+use sqlx::PgPool;
 
 // GET /api/products
 pub async fn get_products(State(pool): State<PgPool>) -> Result<Json<Vec<Product>>, StatusCode> {
@@ -57,4 +58,36 @@ pub async fn create_product(
         })?;
 
     Ok((StatusCode::CREATED, Json(product)))
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AdjustStockRequest {
+    pub sku: String,
+    pub quantity: i32,
+}
+
+pub async fn adjust_stock(
+    State(pool): State<PgPool>,
+    Json(request): Json<AdjustStockRequest>,
+) -> Result<Json<Product>, StatusCode> {
+    if request.sku.trim().is_empty() || request.quantity == 0 {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+
+    match ProductService::adjust_stock(&pool, &request.sku, request.quantity).await {
+        Ok(product) => Ok(Json(product)),
+
+        Err(AdjustStockError::NotFound) => Err(StatusCode::NOT_FOUND),
+
+        Err(AdjustStockError::InvalidQuantity) => Err(StatusCode::BAD_REQUEST),
+
+        Err(AdjustStockError::InsufficientStock) => Err(StatusCode::CONFLICT),
+
+        Err(AdjustStockError::StockOverflow) => Err(StatusCode::CONFLICT),
+
+        Err(AdjustStockError::Database(error)) => {
+            eprintln!("Database error: {error:?}");
+            Err(StatusCode::INTERNAL_SERVER_ERROR)
+        }
+    }
 }

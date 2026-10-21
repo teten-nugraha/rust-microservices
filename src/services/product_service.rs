@@ -2,7 +2,7 @@ use sqlx::PgPool;
 
 use crate::{
     models::product::{CreateProductRequest, Product},
-    repositories::product_repository::ProductRepository,
+    repositories::product_repository::{AdjustStockError, ProductRepository},
 };
 
 pub struct ProductService;
@@ -21,5 +21,13 @@ impl ProductService {
         request: &CreateProductRequest,
     ) -> Result<Product, sqlx::Error> {
         ProductRepository::create(pool, request).await
+    }
+
+    pub async fn adjust_stock(
+        pool: &PgPool,
+        sku: &str,
+        qty: i32,
+    ) -> Result<Product, AdjustStockError> {
+        ProductRepository::adjust_stock(pool, sku, qty).await
     }
 }
