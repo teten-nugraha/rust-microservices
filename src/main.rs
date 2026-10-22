@@ -5,8 +5,15 @@ mod repositories;
 mod routes;
 mod services;
 
-use axum::{Json, Router, body::Body, http::Request, routing::get};
-
+use axum::http::{HeaderName, HeaderValue};
+use axum::{
+    Json, Router,
+    body::Body,
+    http::Request,
+    middleware::{self, Next},
+    response::Response,
+    routing::get,
+};
 use serde::Serialize;
 
 use routes::product_route::product_routes;
@@ -20,6 +27,7 @@ use tower_http::{
 };
 use tracing::info;
 use tracing::log::Level::Trace;
+use uuid::Uuid;
 
 #[derive(Serialize)]
 struct HealthResponse {
@@ -32,6 +40,23 @@ async fn health() -> Json<HealthResponse> {
         status: "UP".to_string(),
         service: "inventory-service".to_string(),
     })
+}
+
+async fn request_id_middleware(mut req: Request<Body>, next: Next) -> Response {
+    let req_id = Uuid::new_v4().to_string();
+    let header_value = HeaderValue::from_str(&req_id).expect("UUID should be valid header value");
+
+    req.headers_mut()
+        .insert("x-request-id", header_value.clone());
+
+    tracing::info!(req_id=?req_id, "Request ID is generated");
+
+    // insert header value before calling next
+    let mut response = next.run(req).await;
+
+    response.headers_mut().insert("x-request-id", header_value);
+
+    response
 }
 
 #[tokio::main]
@@ -71,7 +96,9 @@ async fn main() {
                     request_id = %request_id,
                 )
             },
-        ));
+        ))
+        .layer(middleware::from_fn(request_id_middleware));
+
     let host = std::env::var("SERVER_HOST").unwrap_or_else(|_| "0.0.0.0".to_string());
     let port = std::env::var("SERVER_PORT").unwrap_or_else(|_| "8080".to_string());
     let address = format!("{}:{}", host, port);
